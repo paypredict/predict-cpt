@@ -1,0 +1,14 @@
+#idea config
+.idea/workspace.xml
+
+#idea output
+/out/
+
+#idea/maven output
+target/
+
+#idea/maven output
+.idea/dataSources
+
+#logs
+*.log      
