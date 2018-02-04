@@ -17,6 +17,7 @@
         <kotlin.version>1.2.21</kotlin.version>
         <kotlin.compiler.jvmTarget>1.8</kotlin.compiler.jvmTarget>
 
+        <okhttp.version>3.9.1</okhttp.version>
         <vaadin.version>8.3.0</vaadin.version>
 
         <junit.version>4.12</junit.version>

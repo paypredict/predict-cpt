@@ -19,6 +19,13 @@
           <element id="library" level="project" name="Maven: com.vaadin.external.atmosphere:atmosphere-runtime:2.4.11.vaadin2" />
           <element id="library" level="project" name="Maven: com.vaadin.external.slf4j:vaadin-slf4j-jdk14:1.6.1" />
           <element id="library" level="project" name="Maven: com.vaadin:vaadin-themes:8.3.0" />
+          <element id="library" level="project" name="Maven: javax.json:javax.json-api:1.0" />
+          <element id="library" level="project" name="Maven: org.glassfish:javax.json:1.0.4" />
+          <element id="archive" name="r-connection-0.1.0.0.jar">
+            <element id="module-output" name="r-connection" />
+          </element>
+          <element id="library" level="project" name="Maven: com.squareup.okhttp3:okhttp:3.9.1" />
+          <element id="library" level="project" name="Maven: com.squareup.okio:okio:1.13.0" />
           <element id="library" level="project" name="Maven: org.jetbrains.kotlin:kotlin-stdlib:1.2.21" />
           <element id="library" level="project" name="Maven: org.jetbrains:annotations:13.0" />
         </element>
