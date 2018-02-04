@@ -12,14 +12,14 @@ import com.vaadin.ui.Notification
 import com.vaadin.ui.UI
 import com.vaadin.ui.themes.ValoTheme
 import net.paypredict.predict.cpt.web.*
+import net.paypredict.r.connection.RConnection
 import okhttp3.Call
-import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
+import java.io.File
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
 import java.util.logging.Level
 import java.util.logging.Logger
 import javax.json.*
@@ -201,28 +201,32 @@ private val predictorExecutor: ExecutorService by lazy {
     }
 }
 
+private val rConnection: RConnection by lazy {
+    val ppHomeDir = File("/PayPredict")
+    val dataDir = ppHomeDir.resolve("data")
+    val sourceDir = ppHomeDir.resolve("paypredict-R")
+    RConnection(
+        env = mapOf(
+            "PP_CPT_PORT" to "8000",
+            "PP_CPT_ENV_FILE" to dataDir.resolve("env_cpt.Rdata").absolutePath
+        ),
+        sourceDir = sourceDir.resolve("ml/predict-cpt"),
+        source = "plumber.run.R"
+    ).also {
+        onDestroy += { it.close() }
+    }
+}
+
 private class Predictor(val onError: (Throwable) -> Unit) {
     private val logger: Logger = Logger.getLogger(javaClass.name)
 
-    private val okHttpClient: OkHttpClient by lazy {
-        OkHttpClient.Builder()
-            .readTimeout(30, TimeUnit.SECONDS)
-            .build()
-    }
+    private fun call(path: String, builder: Request.Builder.() -> Unit = {}): Call =
+        rConnection.call(path, builder)
 
-    private val server: String get() = "http://localhost:8000"
-
-    private fun newRequest(path: String, builder: Request.Builder.() -> Unit = {}): Call = okHttpClient.newCall(
-        Request.Builder()
-            .url("$server/$path")
-            .apply(builder)
-            .build()
-    )
-
-    private fun submit(call: (OkHttpClient) -> Unit) {
+    private fun asyncCall(call: () -> Unit) {
         predictorExecutor.submit {
             try {
-                call(okHttpClient)
+                call()
             } catch (e: Throwable) {
                 logger.log(Level.WARNING, "http call error", e)
                 onError(e)
@@ -231,8 +235,8 @@ private class Predictor(val onError: (Throwable) -> Unit) {
     }
 
     fun asyncGetCptList(onReady: (List<CPT>) -> Unit) {
-        submit {
-            onReady(newRequest("cpts", ::logRB).execute().use { response ->
+        asyncCall {
+            onReady(call("cpts", ::logRB).execute().use { response ->
                 response.toJsonArray().map { value: JsonValue ->
                     val json = value as JsonObject
                     CPT(
@@ -250,8 +254,8 @@ private class Predictor(val onError: (Throwable) -> Unit) {
     }
 
     fun asyncGetPayerList(vararg items: Item?, onReady: (List<Payer>) -> Unit) {
-        submit {
-            onReady(newRequest(items.toPath("payers"), ::logRB).execute().use { response ->
+        asyncCall {
+            onReady(call(items.toPath("payers"), ::logRB).execute().use { response ->
                 response.toJsonArray().map { value: JsonValue ->
                     val json = value as JsonObject
                     Payer(
@@ -264,8 +268,8 @@ private class Predictor(val onError: (Throwable) -> Unit) {
     }
 
     fun asyncGetPlanList(vararg items: Item?, onReady: (List<Plan>) -> Unit) {
-        submit {
-            onReady(newRequest(items.toPath("plans"), ::logRB).execute().use { response ->
+        asyncCall {
+            onReady(call(items.toPath("plans"), ::logRB).execute().use { response ->
                 response.toJsonArray().map { value: JsonValue ->
                     val json = value as JsonObject
                     Plan(
@@ -278,8 +282,8 @@ private class Predictor(val onError: (Throwable) -> Unit) {
     }
 
     fun asyncGetDxList(vararg items: Item?, onReady: (List<DX>) -> Unit) {
-        submit {
-            onReady(newRequest(items.toPath("dxs"), ::logRB).execute().use { response ->
+        asyncCall {
+            onReady(call(items.toPath("dxs"), ::logRB).execute().use { response ->
                 response.toJsonArray().map { value: JsonValue ->
                     val json = value as JsonObject
                     DX(
@@ -292,8 +296,8 @@ private class Predictor(val onError: (Throwable) -> Unit) {
     }
 
     fun asyncPredict(vararg items: Item?, onReady: (Risk) -> Unit) {
-        submit {
-            onReady(newRequest(items.toPath("predict"), ::logRB).execute().use { response ->
+        asyncCall {
+            onReady(call(items.toPath("predict"), ::logRB).execute().use { response ->
                 val json = response.toJsonObject()
                 val risk = json.getJsonArray("risk").firstOrNull() as JsonObject
                 Risk(
