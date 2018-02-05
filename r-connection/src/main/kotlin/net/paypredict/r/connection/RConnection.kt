@@ -64,7 +64,7 @@ class RConnection(
 
         for (i in 1..10) {
             try {
-                val code = call0("").execute().code()
+                val code = call0("").execute().use { it.code() }
                 if (code == 404) return
             } catch (e: java.net.ConnectException) {
             }
@@ -79,7 +79,7 @@ class RConnection(
         process?.let {
             process = null
             try {
-                call0("exit").execute()
+                call0("exit").execute().close()
                 Thread.sleep(500)
                 if (it.isAlive) {
                     logger.warning("exiting R: exit command has failed -> killing process")
