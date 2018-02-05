@@ -97,11 +97,16 @@ class RConnection(
 }
 
 private object R {
+    private val isWindows: Boolean by lazy {
+        System.getProperty("os.name", "").contains("windows", ignoreCase = true)
+    }
+
     val binPath: String? by lazy {
         System.getProperty("R.binPath", null) ?: installPath?.let {
             File(it).resolve("bin").absolutePath
         }
     }
+
 
     val installPath: String? by lazy {
         fun windowsInstallPath(): String? = System.getProperty("R.installPath", null) ?: ProcessBuilder().run {
@@ -126,8 +131,11 @@ private object R {
             }
             null
         }
+        if (isWindows)
+            windowsInstallPath()
+        else
+            "/usr"
 
-        windowsInstallPath()
     }
 
     private val pathSeparator: String = File.pathSeparator
@@ -147,7 +155,7 @@ private object R {
     ): Process {
         val rExe = binPath?.let {
             File(it)
-                .resolve("R.exe")
+                .resolve(if (isWindows) "R.exe" else "R")
                 .absoluteFile
                 .normalize()
         } ?: throw IOException("R not found")
