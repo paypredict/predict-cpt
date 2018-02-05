@@ -31,25 +31,25 @@ import javax.servlet.annotation.WebServlet
 @Title("Predict CPT")
 @Push
 class PredictCptUI : UI() {
-    private val cpt = comboBox<CPT>(placeholder = "CPT", width = "100%") {
+    private val cpt = comboBox<CPT>(placeholder = "Select CPT Code", width = "100%") {
         addValueChangeListener {
             doGetPayerList(value)
         }
     }
 
-    private val payer = comboBox<Payer>(placeholder = "Payer", width = "100%") {
+    private val payer = comboBox<Payer>(placeholder = "Select Insurance Payer", width = "100%") {
         addValueChangeListener {
             doGetPlanList(cpt.value, value)
         }
     }
 
-    private val plan = comboBox<Plan>(placeholder = "Plan", width = "100%") {
+    private val plan = comboBox<Plan>(placeholder = "Select Insurance Plan", width = "100%") {
         addValueChangeListener {
             doGetDxList(cpt.value, payer.value, value)
         }
     }
 
-    private val dx = comboBox<DX>(placeholder = "DX", width = "100%")
+    private val dx = comboBox<DX>(placeholder = "Select Patient Diagnosis", width = "100%")
 
 
     private val button = button("Predict") {
