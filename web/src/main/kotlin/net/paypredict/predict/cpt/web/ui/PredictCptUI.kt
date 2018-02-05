@@ -152,7 +152,7 @@ class PredictCptUI : UI() {
                 this > 0.3 -> "<span style='color: white; font-weight: bold; background-color: orange; border-radius: 4px'>"
                 else -> "<span style='color: white; font-weight: bold; background-color: green; border-radius: 4px'>"
             }
-            return "$style&nbsp; Risk: ${(this * 100).toInt()}%&nbsp;</span>"
+            return "$style&nbsp;Payment&nbsp;Risk:&nbsp;${(this * 100).toInt()}%&nbsp;</span>"
         }
 
         if (items.contains(null)) {
