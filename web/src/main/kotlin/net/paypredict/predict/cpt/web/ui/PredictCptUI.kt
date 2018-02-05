@@ -3,7 +3,6 @@ package net.paypredict.predict.cpt.web.ui
 import com.vaadin.annotations.Push
 import com.vaadin.annotations.Title
 import com.vaadin.annotations.VaadinServletConfiguration
-import com.vaadin.icons.VaadinIcons
 import com.vaadin.server.VaadinRequest
 import com.vaadin.server.VaadinServlet
 import com.vaadin.shared.ui.ContentMode
@@ -139,12 +138,21 @@ class PredictCptUI : UI() {
     }
 
     private fun doPredict(vararg items: Item?) {
-        fun showPrediction(html: String, style: String) {
+        fun showPrediction(html: String, style: String?) {
             val label = predicted replace label(html) {
                 contentMode = ContentMode.HTML
-                addStyleName(style)
+                if (style != null) addStyleName(style)
             }
             predicted.setComponentAlignment(label, Alignment.MIDDLE_LEFT)
+        }
+        fun Double.formatAsRiskLevelPcHtml(): String {
+            //language=HTML
+            val style = when {
+                this > 0.5 -> "<span style='color: white; font-weight: bold; background-color: red; border-radius: 4px'>"
+                this > 0.3 -> "<span style='color: white; font-weight: bold; background-color: orange; border-radius: 4px'>"
+                else -> "<span style='color: white; font-weight: bold; background-color: green; border-radius: 4px'>"
+            }
+            return "$style&nbsp; Risk: ${(this * 100).toInt()}%&nbsp;</span>"
         }
 
         if (items.contains(null)) {
@@ -157,12 +165,12 @@ class PredictCptUI : UI() {
                 access {
                     showPrediction(
                         when (risk.level) {
-                            RiskLevel.High -> VaadinIcons.EXCLAMATION_CIRCLE.html + "&nbsp;" + (risk.reason ?: "High Risk")
-                            RiskLevel.Low -> VaadinIcons.CHECK_CIRCLE.html + "&nbsp;" + (risk.reason ?: "Low Risk")
+                            null -> "Invalid Prediction Result"
+                            else -> risk.level.formatAsRiskLevelPcHtml() + " " + (risk.reasonName ?: "")
                         },
                         when (risk.level) {
-                            RiskLevel.High -> ValoTheme.LABEL_FAILURE
-                            RiskLevel.Low -> ValoTheme.LABEL_COLORED
+                            null -> ValoTheme.LABEL_FAILURE
+                            else -> null
                         }
                     )
                 }
@@ -185,12 +193,14 @@ private sealed class Item(val id: String, val name: String) {
 }
 
 private class CPT(id: String, name: String) : Item(id, name)
-private class Payer(id: String, name: String) : Item(id, name)
+private class Payer(id: String, name: String) : Item(id, name) {
+    override fun toString(): String = name
+}
+
 private class Plan(id: String, name: String) : Item(id, name)
 private class DX(id: String, name: String) : Item(id, name)
 
-private enum class RiskLevel { High, Low }
-private data class Risk(val level: RiskLevel, var reason: String?)
+private data class Risk(val level: Double?, var reason: String?, var reasonName: String?)
 
 
 private val onDestroy: MutableList<() -> Unit> = CopyOnWriteArrayList()
@@ -301,8 +311,9 @@ private class Predictor(val onError: (Throwable) -> Unit) {
                 val json = response.toJsonObject()
                 val risk = json.getJsonArray("risk").firstOrNull() as JsonObject
                 Risk(
-                    RiskLevel.valueOf(risk.getString("Level", "?")),
-                    risk.getString("Reason", null)
+                    risk.getJsonNumber("Level")?.doubleValue(),
+                    risk.getString("Reason", null),
+                    risk.getString("ReasonName", null)
                 )
             })
         }
