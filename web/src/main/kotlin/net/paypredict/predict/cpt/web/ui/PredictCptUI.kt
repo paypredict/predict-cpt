@@ -153,10 +153,11 @@ class PredictCptUI : UI() {
                 ?.let { "Denial Reason: <span style='font-weight: bold;'>$reason - $it</span>" } ?: ""
 
         fun Risk.toDenialRiskAsHtml(): String =//language=HTML
-            "Denial Risk: ${when {
-                level > 0.5 -> "<span style='color: white; font-weight: bold; background-color: red; border-radius: 4px'>"
-                level > 0.3 -> "<span style='color: white; font-weight: bold; background-color: orange; border-radius: 4px'>"
-                else -> "<span style='color: white; font-weight: bold; background-color: green; border-radius: 4px'>"
+            "Denial Risk: ${when (riskLabel) {
+                "High" -> "<span style='color: white; font-weight: bold; background-color: red; border-radius: 4px'>"
+                "Elevated" -> "<span style='color: white; font-weight: bold; background-color: orange; border-radius: 4px'>"
+                "Low" -> "<span style='color: white; font-weight: bold; background-color: green; border-radius: 4px'>"
+                else -> "<span style='color: white; font-weight: bold; background-color: blue; border-radius: 4px'>"
             }}&nbsp;$riskLabel&nbsp;(${(level * 100).toInt()}%)&nbsp;</span>"
 
 
