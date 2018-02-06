@@ -261,7 +261,7 @@ private class Predictor(val onError: (Throwable) -> Unit) {
                     val json = value as JsonObject
                     Payer(
                         json.getString("prid", "?"),
-                        json.getString("dsc", "?")
+                        json.getString("NAME", "?")
                     )
                 }
             })
