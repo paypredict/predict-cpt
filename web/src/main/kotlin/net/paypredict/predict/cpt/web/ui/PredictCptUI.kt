@@ -138,16 +138,27 @@ class PredictCptUI : UI() {
     }
 
     private fun doPredict(vararg items: Item?) {
+        fun Double.dollars(): String = "$%.2f".format(this)
+
+        fun Risk.toMedicareRateAsHtml(): String =//language=HTML
+            medicareRate
+                ?.let { "Medicare Rate: <span style='font-weight: bold;'>${it.dollars()}</span>" } ?: ""
+
+        fun Risk.toPrivateInsRateAsHtml(): String =//language=HTML
+            privateInsRate
+                ?.let { "Private Ins Rate: <span style='font-weight: bold;'>${it.dollars()}</span>" } ?: ""
+
+        fun Risk.toDenialReasonAsHtml(): String =//language=HTML
+            reasonName
+                ?.let { "Denial Reason: <span style='font-weight: bold;'>$reason - $it</span>" } ?: ""
 
         fun Risk.toDenialRiskAsHtml(): String =//language=HTML
-            "${when {
+            "Denial Risk: ${when {
                 level > 0.5 -> "<span style='color: white; font-weight: bold; background-color: red; border-radius: 4px'>"
                 level > 0.3 -> "<span style='color: white; font-weight: bold; background-color: orange; border-radius: 4px'>"
                 else -> "<span style='color: white; font-weight: bold; background-color: green; border-radius: 4px'>"
             }}&nbsp;$riskLabel&nbsp;(${(level * 100).toInt()}%)&nbsp;</span>"
 
-        fun Risk.toDenialReasonAsHtml(): String =//language=HTML
-            "<span style='font-weight: bold;'>$reason - $reasonName</span>"
 
         predictedLayout.removeAllComponents()
         if (items.contains(null)) {
@@ -156,14 +167,17 @@ class PredictCptUI : UI() {
             predictor.asyncPredict(*items) { risk ->
                 access {
                     predictedLayout add label(
-                        "Denial Risk: " + risk.toDenialRiskAsHtml(),
-                        mode = ContentMode.HTML)
-                    risk.reasonName?.let {
-                        predictedLayout add label(
-                            "Denial Reason: " + risk.toDenialReasonAsHtml(),
-                            mode = ContentMode.HTML
-                        )
-                    }
+                        listOf(
+                            risk.toMedicareRateAsHtml(),
+                            risk.toPrivateInsRateAsHtml(),
+                            risk.toDenialRiskAsHtml()
+                        ).filter { it.isNotEmpty() }.joinToString(separator = " &nbsp;&nbsp; \n"),
+                        mode = ContentMode.HTML
+                    )
+                    predictedLayout add label(
+                        risk.toDenialReasonAsHtml(),
+                        mode = ContentMode.HTML
+                    )
                 }
             }
         }
@@ -191,7 +205,14 @@ private class Payer(id: String, name: String) : Item(id, name) {
 private class Plan(id: String, name: String) : Item(id, name)
 private class DX(id: String, name: String) : Item(id, name)
 
-private data class Risk(val level: Double, val riskLabel: String?, var reason: String?, var reasonName: String?)
+private data class Risk(
+    val level: Double,
+    val riskLabel: String?,
+    var reason: String?,
+    var reasonName: String?,
+    var medicareRate: Double?,
+    var privateInsRate: Double?
+)
 
 
 private val onDestroy: MutableList<() -> Unit> = CopyOnWriteArrayList()
@@ -305,7 +326,9 @@ private class Predictor(val onError: (Throwable) -> Unit) {
                     level = risk.getJsonNumber("Level")?.doubleValue() ?: 1.0,
                     riskLabel = risk.getString("RiskLabel", null),
                     reason = risk.getString("Reason", null),
-                    reasonName = risk.getString("ReasonName", null)
+                    reasonName = risk.getString("ReasonName", null),
+                    medicareRate = risk.getJsonNumber("MC")?.doubleValue(),
+                    privateInsRate = risk.getJsonNumber("Comm")?.doubleValue()
                 )
             })
         }
