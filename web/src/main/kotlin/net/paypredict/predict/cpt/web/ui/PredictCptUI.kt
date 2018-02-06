@@ -9,7 +9,6 @@ import com.vaadin.shared.ui.ContentMode
 import com.vaadin.ui.Alignment
 import com.vaadin.ui.Notification
 import com.vaadin.ui.UI
-import com.vaadin.ui.themes.ValoTheme
 import net.paypredict.predict.cpt.web.*
 import net.paypredict.r.connection.RConnection
 import okhttp3.Call
@@ -52,13 +51,13 @@ class PredictCptUI : UI() {
     private val dx = comboBox<DX>(placeholder = "Select Patient Diagnosis", width = "100%")
 
 
-    private val button = button("Predict") {
+    private val button = button("Predict Denial Risk") {
         addClickListener {
             doPredict(cpt.value, payer.value, plan.value, dx.value)
         }
     }
 
-    private val predicted = horizontalLayout(height = "100%")
+    private val predictedLayout = verticalLayout(margin = false)
 
     private val predictor = Predictor {
         access {
@@ -71,18 +70,19 @@ class PredictCptUI : UI() {
     }
 
     override fun init(request: VaadinRequest) {
-        content = verticalLayout(width = "100%", height = "100%") {
-            val body = this add panel(width = "100%", margin = false) {
+        content = verticalLayout(width = "100%") {
+            val body = this add verticalLayout(width = "100%", margin = false) {
                 this add cpt
                 this add payer
                 this add plan
                 this add dx
-            }.apply {
-                addStyleName(ValoTheme.PANEL_BORDERLESS)
+                this add horizontalLayout(width = "100%") {
+                    this add button
+                    setComponentAlignment(button, Alignment.MIDDLE_RIGHT)
+                }
             }
             this add horizontalLayout {
-                this add button
-                this add predicted
+                this add predictedLayout
             }
             body.setSizeFull()
             setExpandRatio(body, 1f)
@@ -138,41 +138,32 @@ class PredictCptUI : UI() {
     }
 
     private fun doPredict(vararg items: Item?) {
-        fun showPrediction(html: String, style: String?) {
-            val label = predicted replace label(html) {
-                contentMode = ContentMode.HTML
-                if (style != null) addStyleName(style)
-            }
-            predicted.setComponentAlignment(label, Alignment.MIDDLE_LEFT)
-        }
-        fun Double.formatAsRiskLevelPcHtml(): String {
-            //language=HTML
-            val style = when {
-                this > 0.5 -> "<span style='color: white; font-weight: bold; background-color: red; border-radius: 4px'>"
-                this > 0.3 -> "<span style='color: white; font-weight: bold; background-color: orange; border-radius: 4px'>"
-                else -> "<span style='color: white; font-weight: bold; background-color: green; border-radius: 4px'>"
-            }
-            return "$style&nbsp;Payment&nbsp;Risk:&nbsp;${(this * 100).toInt()}%&nbsp;</span>"
-        }
 
+        fun Risk.toDenialRiskAsHtml(): String =//language=HTML
+            "${when {
+                level > 0.5 -> "<span style='color: white; font-weight: bold; background-color: red; border-radius: 4px'>"
+                level > 0.3 -> "<span style='color: white; font-weight: bold; background-color: orange; border-radius: 4px'>"
+                else -> "<span style='color: white; font-weight: bold; background-color: green; border-radius: 4px'>"
+            }}&nbsp;$riskLabel&nbsp;(${(level * 100).toInt()}%)&nbsp;</span>"
+
+        fun Risk.toDenialReasonAsHtml(): String =//language=HTML
+            "<span style='font-weight: bold;'>$reason - $reasonName</span>"
+
+        predictedLayout.removeAllComponents()
         if (items.contains(null)) {
-            val text = "Invalid Parameters"
-            val style = ValoTheme.LABEL_FAILURE
-            showPrediction(text, style)
+            Notification.show("Invalid Parameters", Notification.Type.WARNING_MESSAGE)
         } else {
-            showPrediction("Prediction...", ValoTheme.LABEL_COLORED)
             predictor.asyncPredict(*items) { risk ->
                 access {
-                    showPrediction(
-                        when (risk.level) {
-                            null -> "Invalid Prediction Result"
-                            else -> risk.level.formatAsRiskLevelPcHtml() + " " + (risk.reasonName ?: "")
-                        },
-                        when (risk.level) {
-                            null -> ValoTheme.LABEL_FAILURE
-                            else -> null
-                        }
-                    )
+                    predictedLayout add label(
+                        "Denial Risk: " + risk.toDenialRiskAsHtml(),
+                        mode = ContentMode.HTML)
+                    risk.reasonName?.let {
+                        predictedLayout add label(
+                            "Denial Reason: " + risk.toDenialReasonAsHtml(),
+                            mode = ContentMode.HTML
+                        )
+                    }
                 }
             }
         }
@@ -200,7 +191,7 @@ private class Payer(id: String, name: String) : Item(id, name) {
 private class Plan(id: String, name: String) : Item(id, name)
 private class DX(id: String, name: String) : Item(id, name)
 
-private data class Risk(val level: Double?, var reason: String?, var reasonName: String?)
+private data class Risk(val level: Double, val riskLabel: String?, var reason: String?, var reasonName: String?)
 
 
 private val onDestroy: MutableList<() -> Unit> = CopyOnWriteArrayList()
@@ -311,9 +302,10 @@ private class Predictor(val onError: (Throwable) -> Unit) {
                 val json = response.toJsonObject()
                 val risk = json.getJsonArray("risk").firstOrNull() as JsonObject
                 Risk(
-                    risk.getJsonNumber("Level")?.doubleValue(),
-                    risk.getString("Reason", null),
-                    risk.getString("ReasonName", null)
+                    level = risk.getJsonNumber("Level")?.doubleValue() ?: 1.0,
+                    riskLabel = risk.getString("RiskLabel", null),
+                    reason = risk.getString("Reason", null),
+                    reasonName = risk.getString("ReasonName", null)
                 )
             })
         }

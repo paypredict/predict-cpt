@@ -2,6 +2,7 @@ package net.paypredict.predict.cpt.web
 
 import com.vaadin.server.Resource
 import com.vaadin.server.VaadinServlet
+import com.vaadin.shared.ui.ContentMode
 import com.vaadin.shared.ui.MarginInfo
 import com.vaadin.ui.*
 import javax.servlet.annotation.WebServlet
@@ -109,10 +110,12 @@ internal fun label(
     text: String? = null,
     width: String? = null,
     height: String? = null,
+    mode: ContentMode = ContentMode.TEXT,
     build: Label.() -> Unit = {}
 ) = Label(text).apply {
     if (width != null) setWidth(width)
     if (height != null) setHeight(height)
+    contentMode = mode
     build(this)
 }
 
