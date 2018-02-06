@@ -7,6 +7,7 @@ import com.vaadin.server.VaadinRequest
 import com.vaadin.server.VaadinServlet
 import com.vaadin.shared.ui.ContentMode
 import com.vaadin.ui.Alignment
+import com.vaadin.ui.ComboBox
 import com.vaadin.ui.Notification
 import com.vaadin.ui.UI
 import net.paypredict.predict.cpt.web.*
@@ -100,41 +101,28 @@ class PredictCptUI : UI() {
 
     private fun doGetPayerList(vararg items: Item?) {
         if (items.contains(null))
-            payer.setItems(emptyList())
+            payer.updateItems(emptyList())
         else
-            predictor.asyncGetPayerList(*items) {
-                access {
-                    val old = payer.value
-                    payer.setItems(it)
-                    payer.value = old
-                }
-            }
+            predictor.asyncGetPayerList(*items) { access { payer.updateItems(it) } }
     }
 
     private fun doGetPlanList(vararg items: Item?) {
         if (items.contains(null))
-            plan.setItems(emptyList())
+            plan.updateItems(emptyList())
         else
-            predictor.asyncGetPlanList(*items) {
-                access {
-                    val old = plan.value
-                    plan.setItems(it)
-                    plan.value = old
-                }
-            }
+            predictor.asyncGetPlanList(*items) { access { plan.updateItems(it) } }
     }
 
     private fun doGetDxList(vararg items: Item?) {
         if (items.contains(null))
-            dx.setItems(emptyList())
+            dx.updateItems(emptyList())
         else
-            predictor.asyncGetDxList(*items) {
-                access {
-                    val old = dx.value
-                    dx.setItems(it)
-                    dx.value = old
-                }
-            }
+            predictor.asyncGetDxList(*items) { access { dx.updateItems(it) } }
+    }
+
+    private inline fun <reified T> ComboBox<T>.updateItems(items: List<T>) {
+        value = null
+        setItems(items)
     }
 
     private fun doPredict(vararg items: Item?) {
