@@ -49,7 +49,11 @@ class PredictCptUI : UI() {
         }
     }
 
-    private val dx = comboBox<DX>(placeholder = "Select Patient Diagnosis", width = "100%")
+    private val dx = comboBox<DX>(placeholder = "Select Patient Diagnosis", width = "100%") {
+        addValueChangeListener {
+            predictedLayout.removeAllComponents()
+        }
+    }
 
 
     private val button = button("Predict Denial Risk") {
