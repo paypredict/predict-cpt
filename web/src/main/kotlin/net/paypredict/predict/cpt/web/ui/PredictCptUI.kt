@@ -5,11 +5,8 @@ import com.vaadin.annotations.Title
 import com.vaadin.annotations.VaadinServletConfiguration
 import com.vaadin.server.VaadinRequest
 import com.vaadin.server.VaadinServlet
-import com.vaadin.shared.ui.ContentMode
-import com.vaadin.ui.Alignment
-import com.vaadin.ui.ComboBox
-import com.vaadin.ui.Notification
-import com.vaadin.ui.UI
+import com.vaadin.ui.*
+import com.vaadin.ui.themes.ValoTheme
 import net.paypredict.predict.cpt.web.*
 import net.paypredict.r.connection.RConnection
 import okhttp3.Call
@@ -51,10 +48,9 @@ class PredictCptUI : UI() {
 
     private val dx = comboBox<DX>(placeholder = "Select Patient Diagnosis", width = "100%") {
         addValueChangeListener {
-            predictedLayout.removeAllComponents()
+            hidePredictionResult()
         }
     }
-
 
     private val button = button("Predict Denial Risk") {
         addClickListener {
@@ -62,7 +58,7 @@ class PredictCptUI : UI() {
         }
     }
 
-    private val predictedLayout = verticalLayout(margin = false)
+    private val predictionResultPanel = panel(width = "100%", margin = false)
 
     private val predictor = Predictor {
         access {
@@ -72,6 +68,20 @@ class PredictCptUI : UI() {
                 Notification.Type.WARNING_MESSAGE
             )
         }
+    }
+
+    private fun showPredictionResult(result: Component) {
+        predictionResultPanel.content = result
+        predictionResultPanel.isVisible = true
+    }
+
+    private fun hidePredictionResult() {
+        predictionResultPanel.content = verticalLayout()
+        predictionResultPanel.isVisible = false
+    }
+
+    private val enableOnFirstResponse = listOf<Component>(cpt, payer, plan, dx, button).also {
+        it.forEach { it.isEnabled = false }
     }
 
     override fun init(request: VaadinRequest) {
@@ -86,9 +96,10 @@ class PredictCptUI : UI() {
                     setComponentAlignment(button, Alignment.MIDDLE_RIGHT)
                 }
             }
-            this add horizontalLayout {
-                this add predictedLayout
-            }
+
+            hidePredictionResult()
+            this add predictionResultPanel
+
             body.setSizeFull()
             setExpandRatio(body, 1f)
         }
@@ -97,9 +108,9 @@ class PredictCptUI : UI() {
 
     private fun doGetCptList() = predictor.asyncGetCptList {
         access {
-            val old = cpt.value
             cpt.setItems(it)
-            cpt.value = old
+            enableOnFirstResponse.forEach { it.isEnabled = true }
+            cpt.focus()
         }
     }
 
@@ -132,48 +143,50 @@ class PredictCptUI : UI() {
     private fun doPredict(vararg items: Item?) {
         fun Double.dollars(): String = "$%.2f".format(this)
 
-        fun Risk.toMedicareRateAsHtml(): String =//language=HTML
+        fun Risk.toMedicareRateLabel(): Label? =//language=HTML
             medicareRate
-                ?.let { "Medicare Rate: <span style='font-weight: bold;'>${it.dollars()}</span>" } ?: ""
+                ?.let { labelHtml("Medicare Rate: <span style='font-weight: bold;'>${it.dollars()}</span>") }
 
-        fun Risk.toPrivateInsRateAsHtml(): String =//language=HTML
+        fun Risk.toPrivateInsRateLabel(): Label? =//language=HTML
             privateInsRate
-                ?.let { "Private Ins Rate: <span style='font-weight: bold;'>${it.dollars()}</span>" } ?: ""
+                ?.let { labelHtml("Private Ins Rate: <span style='font-weight: bold;'>${it.dollars()}</span>") }
 
-        fun Risk.toDenialReasonAsHtml(): String =//language=HTML
-            reasonName
-                ?.let { "Denial Reason: <span style='font-weight: bold;'>$reason - $it</span>" } ?: ""
-
-        fun Risk.toDenialRiskAsHtml(): String =//language=HTML
+        fun Risk.toDenialRiskLabel(): Label = labelHtml(//language=HTML
             "Denial Risk: ${when (riskLabel) {
                 "High" -> "<span style='color: white; font-weight: bold; background-color: red; border-radius: 4px'>"
                 "Elevated" -> "<span style='color: white; font-weight: bold; background-color: orange; border-radius: 4px'>"
                 "Low" -> "<span style='color: white; font-weight: bold; background-color: green; border-radius: 4px'>"
                 else -> "<span style='color: white; font-weight: bold; background-color: blue; border-radius: 4px'>"
             }}&nbsp;$riskLabel&nbsp;(${(level * 100).toInt()}%)&nbsp;</span>"
+        )
 
-
-        predictedLayout.removeAllComponents()
-        if (items.contains(null)) {
-            Notification.show("Invalid Parameters", Notification.Type.WARNING_MESSAGE)
-        } else {
-            predictor.asyncPredict(*items) { risk ->
-                access {
-                    predictedLayout add label(
-                        listOf(
-                            risk.toMedicareRateAsHtml(),
-                            risk.toPrivateInsRateAsHtml(),
-                            risk.toDenialRiskAsHtml()
-                        ).filter { it.isNotEmpty() }.joinToString(separator = " &nbsp;&nbsp; \n"),
-                        mode = ContentMode.HTML
-                    )
-                    predictedLayout add label(
-                        risk.toDenialReasonAsHtml(),
-                        mode = ContentMode.HTML
+        fun Risk.toDenialReasonLabel(): Label? =//language=HTML
+            reasonName
+                ?.let {
+                    labelHtml(
+                        "Denial Reason: <span style='font-weight: bold;'>$reason - $it</span>",
+                        width = "100%"
                     )
                 }
+
+        hidePredictionResult()
+        if (items.contains(null))
+            Notification.show("Invalid Parameters", Notification.Type.WARNING_MESSAGE)
+        else
+            predictor.asyncPredict(*items) { risk ->
+                access {
+                    showPredictionResult(verticalLayout(width = "100%") {
+                        this add horizontalLayout(margin = false) {
+                            addStyleName(ValoTheme.LAYOUT_HORIZONTAL_WRAPPING)
+
+                            risk.toMedicareRateLabel() addTo this
+                            risk.toPrivateInsRateLabel() addTo this
+                            risk.toDenialRiskLabel() addTo this
+                        }
+                        risk.toDenialReasonLabel() addTo this
+                    })
+                }
             }
-        }
     }
 }
 

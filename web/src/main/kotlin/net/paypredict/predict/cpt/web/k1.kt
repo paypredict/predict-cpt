@@ -14,6 +14,9 @@ import javax.servlet.annotation.WebServlet
 @WebServlet(urlPatterns = ["/VAADIN/*"], name = "K1-Servlet", asyncSupported = true)
 class K1Servlet : VaadinServlet()
 
+internal inline infix fun <reified T : Component> T?.addTo(container: ComponentContainer): T? =
+    apply { if (this != null) container.addComponent(this) }
+
 internal inline infix fun <reified T : Component> ComponentContainer.add(component: T): T =
     component.also { addComponent(it) }
 
@@ -116,6 +119,18 @@ internal fun label(
     if (width != null) setWidth(width)
     if (height != null) setHeight(height)
     contentMode = mode
+    build(this)
+}
+
+internal fun labelHtml(
+    html: String? = null,
+    width: String? = null,
+    height: String? = null,
+    build: Label.() -> Unit = {}
+) = Label(html).apply {
+    if (width != null) setWidth(width)
+    if (height != null) setHeight(height)
+    contentMode = ContentMode.HTML
     build(this)
 }
 
