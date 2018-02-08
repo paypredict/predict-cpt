@@ -3,6 +3,7 @@ package net.paypredict.predict.cpt.web.ui
 import com.vaadin.annotations.Push
 import com.vaadin.annotations.Title
 import com.vaadin.annotations.VaadinServletConfiguration
+import com.vaadin.icons.VaadinIcons
 import com.vaadin.server.VaadinRequest
 import com.vaadin.server.VaadinServlet
 import com.vaadin.ui.*
@@ -58,7 +59,7 @@ class PredictCptUI : UI() {
         }
     }
 
-    private val predictionResultPanel = panel(width = "100%", margin = false)
+    private val predictionResult = verticalLayout(width = "100%", margin = false)
 
     private val predictor = Predictor {
         access {
@@ -70,14 +71,13 @@ class PredictCptUI : UI() {
         }
     }
 
-    private fun showPredictionResult(result: Component) {
-        predictionResultPanel.content = result
-        predictionResultPanel.isVisible = true
+    private fun showPredictionResult(vararg components: Component) {
+        predictionResult.removeAllComponents()
+        predictionResult.addComponents(*components)
     }
 
     private fun hidePredictionResult() {
-        predictionResultPanel.content = verticalLayout()
-        predictionResultPanel.isVisible = false
+        predictionResult.removeAllComponents()
     }
 
     private val enableOnFirstResponse = listOf<Component>(cpt, payer, plan, dx, button).also {
@@ -98,7 +98,7 @@ class PredictCptUI : UI() {
             }
 
             hidePredictionResult()
-            this add predictionResultPanel
+            this add predictionResult
 
             body.setSizeFull()
             setExpandRatio(body, 1f)
@@ -143,15 +143,15 @@ class PredictCptUI : UI() {
     private fun doPredict(vararg items: Item?) {
         fun Double.dollars(): String = "$%.2f".format(this)
 
-        fun Risk.toMedicareRateLabel(): Label? =//language=HTML
+        fun PredictionResult.Risk.toMedicareRateLabel(): Label? =//language=HTML
             medicareRate
                 ?.let { labelHtml("Medicare Rate: <span style='font-weight: bold;'>${it.dollars()}</span>") }
 
-        fun Risk.toPrivateInsRateLabel(): Label? =//language=HTML
+        fun PredictionResult.Risk.toPrivateInsRateLabel(): Label? =//language=HTML
             privateInsRate
                 ?.let { labelHtml("Private Ins Rate: <span style='font-weight: bold;'>${it.dollars()}</span>") }
 
-        fun Risk.toDenialRiskLabel(): Label = labelHtml(//language=HTML
+        fun PredictionResult.Risk.toDenialRiskLabel(): Label = labelHtml(//language=HTML
             "Denial Risk: ${when (riskLabel) {
                 "High" -> "<span style='color: white; font-weight: bold; background-color: red; border-radius: 4px'>"
                 "Elevated" -> "<span style='color: white; font-weight: bold; background-color: orange; border-radius: 4px'>"
@@ -160,7 +160,7 @@ class PredictCptUI : UI() {
             }}&nbsp;$riskLabel&nbsp;(${(level * 100).toInt()}%)&nbsp;</span>"
         )
 
-        fun Risk.toDenialReasonLabel(): Label? =//language=HTML
+        fun PredictionResult.Risk.toDenialReasonLabel(): Label? =//language=HTML
             reasonName
                 ?.let {
                     labelHtml(
@@ -169,23 +169,51 @@ class PredictCptUI : UI() {
                     )
                 }
 
+        fun buttonWithProductionNotification(caption: String, need: Boolean): Button =
+            button(
+                caption,
+                icon = if (need) VaadinIcons.THIN_SQUARE else VaadinIcons.CHECK_SQUARE
+            ) {
+                addStyleName(ValoTheme.BUTTON_LINK)
+                isCaptionAsHtml = true
+                addClickListener {
+                    Notification.show("Form available in production version")
+                }
+            }
+
+        fun PredictionResult.ABN.toComponent(): Component =//language=HTML
+            buttonWithProductionNotification("Need ABN" +
+                    (amount?.let { " <span style='font-weight: bold;'>(${it.dollars()})</span>" } ?: ""), need)
+
+
+        fun PredictionResult.Precertification.toComponent(): Component =//language=HTML
+            buttonWithProductionNotification("Need Precertification", need)
+
         hidePredictionResult()
         if (items.contains(null))
             Notification.show("Invalid Parameters", Notification.Type.WARNING_MESSAGE)
         else
-            predictor.asyncPredict(*items) { risk ->
+            predictor.asyncPredict(*items) { result ->
                 access {
-                    showPredictionResult(verticalLayout(width = "100%") {
-                        this add horizontalLayout(margin = false) {
+                    showPredictionResult(
+                        panel(width = "100%", margin = false) {
+                            setMargin(true)
+
+                            this add horizontalLayout(margin = false) {
+                                addStyleName(ValoTheme.LAYOUT_HORIZONTAL_WRAPPING)
+
+                                result.risk.toMedicareRateLabel() addTo this
+                                result.risk.toPrivateInsRateLabel() addTo this
+                                result.risk.toDenialRiskLabel() addTo this
+                            }
+                            result.risk.toDenialReasonLabel() addTo this
+                        },
+                        horizontalLayout(margin = false) {
                             addStyleName(ValoTheme.LAYOUT_HORIZONTAL_WRAPPING)
 
-                            risk.toMedicareRateLabel() addTo this
-                            risk.toPrivateInsRateLabel() addTo this
-                            risk.toDenialRiskLabel() addTo this
-                        }
-                        risk.toDenialReasonLabel() addTo this
-                    })
-                    //TODO show popup: Form available in production version
+                            result.abn.toComponent() addTo this
+                            result.precertification.toComponent() addTo this
+                        })
                 }
             }
     }
@@ -212,15 +240,20 @@ private class Payer(id: String, name: String) : Item(id, name) {
 private class Plan(id: String, name: String) : Item(id, name)
 private class DX(id: String, name: String) : Item(id, name)
 
-private data class Risk(
-    val level: Double,
-    val riskLabel: String?,
-    var reason: String?,
-    var reasonName: String?,
-    var medicareRate: Double?,
-    var privateInsRate: Double?
-)
 
+private data class PredictionResult(val risk: Risk, val abn: ABN, val precertification: Precertification) {
+    data class Risk(
+        val level: Double,
+        val riskLabel: String?,
+        var reason: String?,
+        var reasonName: String?,
+        var medicareRate: Double?,
+        var privateInsRate: Double?
+    )
+
+    data class ABN(val need: Boolean, val amount: Double?)
+    data class Precertification(val need: Boolean)
+}
 
 private val onDestroy: MutableList<() -> Unit> = CopyOnWriteArrayList()
 
@@ -324,18 +357,30 @@ private class Predictor(val onError: (Throwable) -> Unit) {
         }
     }
 
-    fun asyncPredict(vararg items: Item?, onReady: (Risk) -> Unit) {
+    fun asyncPredict(vararg items: Item?, onReady: (PredictionResult) -> Unit) {
         asyncCall {
             onReady(call(items.toPath("predict"), ::logRB).execute().use { response ->
                 val json = response.toJsonObject()
                 val risk = json.getJsonArray("risk").firstOrNull() as JsonObject
-                Risk(
-                    level = risk.getJsonNumber("Level")?.doubleValue() ?: 1.0,
-                    riskLabel = risk.getString("RiskLabel", null),
-                    reason = risk.getString("Reason", null),
-                    reasonName = risk.getString("ReasonName", null),
-                    medicareRate = risk.getJsonNumber("MC")?.doubleValue(),
-                    privateInsRate = risk.getJsonNumber("Comm")?.doubleValue()
+                val needABN = json.getJsonArray("needABN").firstOrNull()
+                val abnAmt = json.getJsonArray("abnAmt").firstOrNull() as? JsonNumber
+                val needPrecert = json.getJsonArray("needPrecert").firstOrNull()
+                PredictionResult(
+                    risk = PredictionResult.Risk(
+                        level = risk.getJsonNumber("Level")?.doubleValue() ?: 1.0,
+                        riskLabel = risk.getString("RiskLabel", null),
+                        reason = risk.getString("Reason", null),
+                        reasonName = risk.getString("ReasonName", null),
+                        medicareRate = risk.getJsonNumber("MC")?.doubleValue(),
+                        privateInsRate = risk.getJsonNumber("Comm")?.doubleValue()
+                    ),
+                    abn = PredictionResult.ABN(
+                        need = needABN == JsonValue.TRUE,
+                        amount = abnAmt?.doubleValue()
+                    ),
+                    precertification = PredictionResult.Precertification(
+                        need = needPrecert == JsonValue.TRUE
+                    )
                 )
             })
         }
