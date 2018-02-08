@@ -4,6 +4,7 @@ import com.vaadin.annotations.Push
 import com.vaadin.annotations.Title
 import com.vaadin.annotations.VaadinServletConfiguration
 import com.vaadin.icons.VaadinIcons
+import com.vaadin.server.Page
 import com.vaadin.server.VaadinRequest
 import com.vaadin.server.VaadinServlet
 import com.vaadin.ui.*
@@ -172,22 +173,28 @@ class PredictCptUI : UI() {
         fun buttonWithProductionNotification(caption: String, need: Boolean): Button =
             button(
                 caption,
-                icon = if (need) VaadinIcons.THIN_SQUARE else VaadinIcons.CHECK_SQUARE
+                icon = if (need) VaadinIcons.CHECK_SQUARE else VaadinIcons.THIN_SQUARE
             ) {
                 addStyleName(ValoTheme.BUTTON_LINK)
                 isCaptionAsHtml = true
                 addClickListener {
-                    Notification.show("Form available in production version")
+                    Notification("Form available in production version")
+                        .apply {
+                            delayMsec = 3000
+                            show(Page.getCurrent())
+                        }
                 }
             }
 
-        fun PredictionResult.ABN.toComponent(): Component =//language=HTML
-            buttonWithProductionNotification("Need ABN" +
+        fun PredictionResult.ABN.toComponent(): Component? =//language=HTML
+            if (need) buttonWithProductionNotification("Need ABN" +
                     (amount?.let { " <span style='font-weight: bold;'>(${it.dollars()})</span>" } ?: ""), need)
+            else null
 
 
-        fun PredictionResult.Precertification.toComponent(): Component =//language=HTML
-            buttonWithProductionNotification("Need Precertification", need)
+        fun PredictionResult.Precertification.toComponent(): Component? =//language=HTML
+            if (need) buttonWithProductionNotification("Need Precertification", need)
+            else null
 
         hidePredictionResult()
         if (items.contains(null))
