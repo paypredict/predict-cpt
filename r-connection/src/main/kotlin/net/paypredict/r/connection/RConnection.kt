@@ -62,7 +62,7 @@ class RConnection(
         logger.info("staring R: R " + args.joinToString(separator = " ") { "\"$it\"" })
         process = R.start(*args, directory = sourceDir, env = env)
 
-        for (i in 1..10) {
+        for (i in 1..120) {
             try {
                 val code = call0("").execute().use { it.code() }
                 if (code == 404) return
