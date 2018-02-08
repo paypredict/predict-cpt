@@ -187,13 +187,13 @@ class PredictCptUI : UI() {
             }
 
         fun PredictionResult.ABN.toComponent(): Component? =//language=HTML
-            if (need) buttonWithProductionNotification("Need ABN" +
+            if (need) buttonWithProductionNotification("Print ABN form" +
                     (amount?.let { " <span style='font-weight: bold;'>(${it.dollars()})</span>" } ?: ""), need)
             else null
 
 
         fun PredictionResult.Precertification.toComponent(): Component? =//language=HTML
-            if (need) buttonWithProductionNotification("Need Precertification", need)
+            if (need) buttonWithProductionNotification("Get Precertification form", need)
             else null
 
         hidePredictionResult()
