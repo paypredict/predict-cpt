@@ -1,3 +1,51 @@
+# Install on ubuntu
+
+**/etc/systemd/system/tomcat.service**
+```
+[Unit]
+Description=Apache Tomcat Web Application Container
+After=network.target
+
+[Service]
+Type=forking
+
+Environment=JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-amd64/jre
+Environment=CATALINA_PID=/opt/tomcat/temp/tomcat.pid
+Environment=CATALINA_HOME=/opt/tomcat
+Environment=CATALINA_BASE=/opt/tomcat
+Environment='CATALINA_OPTS=-Xms512M -Xmx1024M -server -XX:+UseParallelGC -Djava.net.preferIPv4Stack=true'
+Environment='JAVA_OPTS=-Djava.awt.headless=true -Djava.security.egd=file:/dev/./urandom'
+
+ExecStart=/opt/tomcat/bin/startup.sh
+ExecStop=/opt/tomcat/bin/shutdown.sh
+
+User=tomcat
+Group=tomcat
+UMask=0007
+RestartSec=10
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+
+**/etc/ufw/sysctl.conf**
+```
+# Uncomment this to allow this host to route packets between interfaces
+net/ipv4/ip_forward=1
+```
+
+**/etc/ufw/before.rules**
+```
+# Forwarding http tomcat ports
+*nat
+:PREROUTING ACCEPT [0:0]
+:POSTROUTING ACCEPT [0:0]
+-A PREROUTING -i eth0 -p tcp --dport 80 -j REDIRECT --to-port 8080
+-A PREROUTING -i eth0 -p tcp --dport 443 -j REDIRECT --to-port 8443
+COMMIT
+```
+
 # UFW and iptables issue with port forwarding
 https://www.digitalocean.com/community/questions/ufw-and-iptables-issue-with-port-forwarding
 
