@@ -46,6 +46,35 @@ net/ipv4/ip_forward=1
 COMMIT
 ```
 
+
+# letsencrypt
+ 1. install certbot: https://certbot.eff.org/#ubuntuxenial-other
+    ```bash
+    $ sudo apt-get update
+    $ sudo apt-get install software-properties-common
+    $ sudo add-apt-repository ppa:certbot/certbot
+    $ sudo apt-get update
+    $ sudo apt-get install certbot
+    ```
+ 2. https://community.letsencrypt.org/t/using-lets-encrypt-with-tomcat/41082
+    generate ssl/bundle.pfx 
+    ```bash
+    mkdir /opt/tomcat/ssl
+    cd /etc/letsencrypt/live/yourdomain.com
+    openssl pkcs12 -export -out /opt/tomcat/ssl/bundle.pfx -inkey privkey.pem -in cert.pem -certfile chain.pem -password pass:apassword
+    ```
+    add ssl connector to `/opt/tomcat/conf/server.xml`: 
+    ```xml
+    <Connector
+           protocol="org.apache.coyote.http11.Http11NioProtocol"
+           port="8443" maxThreads="200"
+           scheme="https" secure="true" SSLEnabled="true"
+           keystoreFile="ssl/bundle.pfx"
+           keystorePass="apassword"
+           clientAuth="false" sslProtocol="TLS"/>
+    ```
+ 
+
 # UFW and iptables issue with port forwarding
 https://www.digitalocean.com/community/questions/ufw-and-iptables-issue-with-port-forwarding
 
