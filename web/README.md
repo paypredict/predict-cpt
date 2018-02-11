@@ -1,4 +1,9 @@
-# Install on ubuntu
+# Install Predict CPT on Ubuntu
+
+## DigitalOcean Setup
+ * [Initial Server Setup with Ubuntu 16.04](https://www.digitalocean.com/community/tutorials/initial-server-setup-with-ubuntu-16-04)
+ * [Install Apache Tomcat 8 on Ubuntu 16.04](https://www.digitalocean.com/community/tutorials/how-to-install-apache-tomcat-8-on-ubuntu-16-04)
+ * [Install R on Ubuntu 16.04](https://www.digitalocean.com/community/tutorials/how-to-install-r-on-ubuntu-16-04-2)
 
 **/etc/systemd/system/tomcat.service**
 ```
