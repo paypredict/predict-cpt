@@ -14,7 +14,6 @@ import net.paypredict.r.connection.RConnection
 import okhttp3.Call
 import okhttp3.Request
 import okhttp3.Response
-import java.io.File
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -271,9 +270,8 @@ private val predictorExecutor: ExecutorService by lazy {
 }
 
 private val rConnection: RConnection by lazy {
-    val ppHomeDir = File("/PayPredict")
-    val dataDir = ppHomeDir.resolve("data")
-    val sourceDir = ppHomeDir.resolve("paypredict-R")
+    val dataDir = PayPredict.homeDirectory.resolve("data")
+    val sourceDir = PayPredict.homeDirectory.resolve("paypredict-R")
     RConnection(
         env = mapOf(
             "PP_CPT_PORT" to "8000",
