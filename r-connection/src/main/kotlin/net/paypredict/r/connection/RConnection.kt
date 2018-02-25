@@ -96,7 +96,7 @@ class RConnection(
     }
 }
 
-private object R {
+object R {
     private val isWindows: Boolean by lazy {
         System.getProperty("os.name", "").contains("windows", ignoreCase = true)
     }

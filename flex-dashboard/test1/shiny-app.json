@@ -1,0 +1,4 @@
+{
+    "mode": "rmarkdown::run",
+    "port": "8099"
+}
