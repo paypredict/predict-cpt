@@ -7,6 +7,7 @@ import com.vaadin.icons.VaadinIcons
 import com.vaadin.server.Page
 import com.vaadin.server.VaadinRequest
 import com.vaadin.server.VaadinServlet
+import com.vaadin.shared.Position
 import com.vaadin.ui.*
 import com.vaadin.ui.themes.ValoTheme
 import net.paypredict.predict.cpt.web.*
@@ -53,7 +54,14 @@ class PredictCptUI : UI() {
         }
     }
 
-    private val button = button("Predict Denial Risk") {
+    private val uploadTestsButton = button("Upload Tests for Analysis") {
+        addClickListener {
+            showTrayNotification("Bulk analysis available in production version", position = Position.TOP_LEFT)
+        }
+    }
+
+    private val predictButton = button("Predict Denial Risk") {
+        addStyleName(ValoTheme.BUTTON_PRIMARY)
         addClickListener {
             doPredict(cpt.value, payer.value, plan.value, dx.value)
         }
@@ -63,10 +71,9 @@ class PredictCptUI : UI() {
 
     private val predictor = Predictor {
         access {
-            Notification.show(
+            showTrayNotification(
                 "Predictor error ${it.javaClass.simpleName}",
-                it.message,
-                Notification.Type.WARNING_MESSAGE
+                description = it.message
             )
         }
     }
@@ -80,7 +87,7 @@ class PredictCptUI : UI() {
         predictionResult.removeAllComponents()
     }
 
-    private val enableOnFirstResponse = listOf<Component>(cpt, payer, plan, dx, button).also {
+    private val enableOnFirstResponse = listOf<Component>(cpt, payer, plan, dx, predictButton).also {
         it.forEach { it.isEnabled = false }
     }
 
@@ -92,8 +99,9 @@ class PredictCptUI : UI() {
                 this add plan
                 this add dx
                 this add horizontalLayout(width = "100%") {
-                    this add button
-                    setComponentAlignment(button, Alignment.MIDDLE_RIGHT)
+                    this add uploadTestsButton
+                    this add predictButton
+                    setComponentAlignment(predictButton, Alignment.MIDDLE_RIGHT)
                 }
             }
 
@@ -177,11 +185,7 @@ class PredictCptUI : UI() {
                 addStyleName(ValoTheme.BUTTON_LINK)
                 isCaptionAsHtml = true
                 addClickListener {
-                    Notification("Form available in production version")
-                        .apply {
-                            delayMsec = 3000
-                            show(Page.getCurrent())
-                        }
+                    showTrayNotification("Form available in production version", position = Position.TOP_LEFT)
                 }
             }
 
@@ -197,7 +201,7 @@ class PredictCptUI : UI() {
 
         hidePredictionResult()
         if (items.contains(null))
-            Notification.show("Invalid Parameters", Notification.Type.WARNING_MESSAGE)
+            showTrayNotification("Invalid Parameters")
         else
             predictor.asyncPredict(*items) { result ->
                 access {
@@ -223,6 +227,15 @@ class PredictCptUI : UI() {
                 }
             }
     }
+
+    private fun showTrayNotification(message: String, description: String? = null, position: Position = Position.TOP_CENTER): Unit =
+        Notification(message, Notification.Type.TRAY_NOTIFICATION)
+            .apply {
+                this.position = position
+                this.description = description
+            }
+            .show(Page.getCurrent())
+
 }
 
 
