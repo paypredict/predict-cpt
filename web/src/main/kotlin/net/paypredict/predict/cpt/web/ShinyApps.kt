@@ -69,8 +69,12 @@ private class ShinyServer(val logger: ServletContext) {
                 confFile.isFile -> Json.createReader(confFile.reader()).use { it.readObject() }
                 else -> Json.createObjectBuilder().apply {
                     logger.log("$confFile not found -> applying default configuration")
-                    System.getenv("LOCALAPPDATA")?.let {
-                        val pandocDir = File(it, "Pandoc")
+                    System.getenv("LOCALAPPDATA").let {
+                        val pandocDir = when (it) {
+                            null -> File("/usr/bin")
+                            else -> File(it, "Pandoc")
+                        }
+                        logger.log("trying pandocDir -> $pandocDir")
                         if (pandocDir.isDirectory)
                             add("pandoc", pandocDir.absolutePath)
                     }
