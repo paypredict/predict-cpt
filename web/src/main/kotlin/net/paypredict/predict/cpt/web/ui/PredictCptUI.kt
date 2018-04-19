@@ -152,8 +152,8 @@ class PredictCptUI : UI() {
         fun Double.dollars(): String = "$%.2f".format(this)
 
         fun PredictionResult.Risk.toMedicareRateLabel(): Label? =//language=HTML
-            medicareRate
-                ?.let { labelHtml("Medicare Rate: <span style='font-weight: bold;'>${it.dollars()}</span>") }
+            medicareRate.let { if (it.isNullOrBlank()) null else it }
+                ?.let { labelHtml("Medicare Rate: <span style='font-weight: bold;'>$it</span>") }
 
         fun PredictionResult.Risk.toPrivateInsRateLabel(): Label? =//language=HTML
             privateInsRate
@@ -248,7 +248,10 @@ class PPUIServlet : VaadinServlet() {
 }
 
 private sealed class Item(val id: String, val name: String) {
-    override fun toString(): String = id.padEnd(7, ' ') + "| $name"
+    override fun toString(): String = when (name) {
+        "?" -> id
+        else -> id.padEnd(7, ' ') + "| $name"
+    }
 }
 
 private class CPT(id: String, name: String) : Item(id, name)
@@ -266,7 +269,7 @@ private data class PredictionResult(val risk: Risk, val abn: ABN, val precertifi
         val riskLabel: String?,
         var reason: String?,
         var reasonName: String?,
-        var medicareRate: Double?,
+        var medicareRate: String?,
         var privateInsRate: Double?
     )
 
@@ -283,14 +286,14 @@ private val predictorExecutor: ExecutorService by lazy {
 }
 
 private val rConnection: RConnection by lazy {
-    val dataDir = PayPredict.homeDirectory.resolve("data")
-    val sourceDir = PayPredict.homeDirectory.resolve("paypredict-R")
+    val dataDir = PayPredict.homeDirectory.resolve("paypredict-R")
+    val sourceDir = dataDir
     RConnection(
         env = mapOf(
             "PP_CPT_PORT" to "8000",
             "PP_CPT_ENV_FILE" to dataDir.resolve("env_cpt.Rdata").absolutePath
         ),
-        sourceDir = sourceDir.resolve("ml/predict-cpt"),
+        sourceDir = sourceDir,
         source = "plumber.run.R"
     ).also {
         onDestroy += { it.close() }
@@ -336,12 +339,15 @@ private class Predictor(val onError: (Throwable) -> Unit) {
     fun asyncGetPayerList(vararg items: Item?, onReady: (List<Payer>) -> Unit) {
         asyncCall {
             onReady(call(items.toPath("payers"), ::logRB).execute().use { response ->
-                response.toJsonArray().map { value: JsonValue ->
-                    val json = value as JsonObject
-                    Payer(
-                        json.getString("prid", "?"),
-                        json.getString("NAME", "?")
-                    )
+                response.toJsonArray().mapNotNull { value: JsonValue ->
+                    when (value) {
+                        is JsonObject -> Payer(
+                            value.getString("prid", "?"),
+                            value.getString("NAME", "?")
+                        )
+                        is JsonString -> Payer(value.string, value.string)
+                        else -> null
+                    }
                 }
             })
         }
@@ -389,7 +395,7 @@ private class Predictor(val onError: (Throwable) -> Unit) {
                         riskLabel = risk.getString("RiskLabel", null),
                         reason = risk.getString("Reason", null),
                         reasonName = risk.getString("ReasonName", null),
-                        medicareRate = risk.getJsonNumber("MC")?.doubleValue(),
+                        medicareRate = risk.getString("MC", null),
                         privateInsRate = risk.getJsonNumber("Comm")?.doubleValue()
                     ),
                     abn = PredictionResult.ABN(
@@ -408,7 +414,7 @@ private class Predictor(val onError: (Throwable) -> Unit) {
         filterNotNull().joinToString(separator = "&", prefix = "$base?") {
             val name = when (it) {
                 is CPT -> "cpt"
-                is Payer -> "prid"
+                is Payer -> "prn"
                 is Plan -> "fCode"
                 is DX -> "dx"
             }
