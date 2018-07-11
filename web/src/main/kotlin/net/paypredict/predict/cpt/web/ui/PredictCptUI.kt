@@ -360,7 +360,7 @@ private class Predictor(val onError: (Throwable) -> Unit) {
                     val json = value as JsonObject
                     Plan(
                         json.getString("fCode", "?"),
-                        json.getString("dsc", "?")
+                        json.getString("search", "?")
                     )
                 }
             })
